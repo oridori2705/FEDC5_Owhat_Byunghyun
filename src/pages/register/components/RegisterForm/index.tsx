@@ -1,20 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import Button from '~/common/components/Button';
 import Group from '~/common/components/Group';
 import Text from '~/common/components/Text';
 import { useUserListQuery } from '~/common/hooks/queries/useUserList';
 import useForm from '~/common/hooks/useForm';
-import { ERROR, MESSAGE } from '~/constants/message';
+import { ERROR } from '~/constants/message';
 import {
   isValidEmail,
   isValidPassword,
-  isValidPasswordMatch,
   isValidUsername,
 } from '~/utils/isValid';
 
 import useEmailDuplicate from '../../hooks/useEmailDuplicate';
 import FormField from '../FormField';
+import DuplicateButton from './DuplicateButton';
 
 interface RegisterFormProps {
   mutation: { isPending: boolean };
@@ -30,61 +30,63 @@ const RegisterForm = ({
   const { data: userList } = useUserListQuery();
 
   const {
-    emailCheckMessage,
+    emailDuplicateCheckMessage,
     setIsEmailDuplicate,
-    setEmailCheckMessage,
+    setEmailDuplicateCheckMessage,
     isEmailDuplicate,
     checkDuplicateEmail,
   } = useEmailDuplicate({ userList });
 
-  const { values, isValid, isCompleted, handleChange } = useForm({
-    initialValues: {
-      email: '',
-      password: '',
-      username: '',
-      confirmPassword: '',
-    },
-    isValidinitialValues: {
-      email: false,
-      password: false,
-      username: false,
-      confirmPassword: false,
-    },
-    validate: {
-      email: value => isValidEmail(value),
-      password: value => isValidPassword(value),
-      username: value => isValidUsername(value),
-      confirmPassword: value =>
-        isValidPasswordMatch({
-          value,
-          newPassword: values.password,
-        }),
-    },
-  });
+  const { fields, validationStatus, isFormComplete, handleFieldChange } =
+    useForm({
+      initialValues: {
+        email: '',
+        password: '',
+        username: '',
+        confirmPassword: '',
+      },
+      initialValidationStatus: {
+        email: false,
+        password: false,
+        username: false,
+        confirmPassword: false,
+      },
+      validate: {
+        email: value => isValidEmail(value),
+        password: value => isValidPassword(value),
+        username: value => isValidUsername(value),
+        confirmPassword: (value, values) => value === values.password,
+      },
+      dependencies: {
+        password: ['confirmPassword'],
+      },
+    });
+
+  const MemoizedDuplicateButton = useMemo(
+    () => (
+      <DuplicateButton
+        checkDuplicateEmail={checkDuplicateEmail}
+        email={fields.email}
+        isEmailDuplicate={isEmailDuplicate}
+        validationStatusEmail={validationStatus.email}
+      />
+    ),
+    [
+      checkDuplicateEmail,
+      fields.email,
+      isEmailDuplicate,
+      validationStatus.email,
+    ],
+  );
 
   useEffect(() => {
     setIsEmailDuplicate(true);
-    setEmailCheckMessage('');
-  }, [values.email, setEmailCheckMessage, setIsEmailDuplicate]);
+    setEmailDuplicateCheckMessage('');
+  }, [fields.email, setEmailDuplicateCheckMessage, setIsEmailDuplicate]);
 
   useEffect(() => {
-    onRegisterCompleted(isCompleted && !isEmailDuplicate);
-  }, [isCompleted, isEmailDuplicate, onRegisterCompleted]);
-
-  const DuplicateButton = () => (
-    <Button
-      onClick={() => checkDuplicateEmail(values.email)}
-      type="button"
-      styleType="ghost"
-      className="absolute right-0 top-0 z-10 translate-y-[7%] text-sm"
-      disabled={
-        !isValid.email ||
-        (emailCheckMessage === MESSAGE.POSSIBLE_EMAIL && !isEmailDuplicate)
-      }
-    >
-      중복 확인
-    </Button>
-  );
+    onRegisterCompleted(isFormComplete && !isEmailDuplicate);
+  }, [isFormComplete, isEmailDuplicate, onRegisterCompleted]);
 
   return (
     <form onSubmit={handleSubmit} className="pb-[100px]">
@@ -95,18 +97,18 @@ const RegisterForm = ({
             name="email"
             label="이메일"
             placeholder="이메일을 입력해주세요."
-            onChange={handleChange}
-            value={values.email}
-            isValid={isValid.email}
-            right={<DuplicateButton />}
+            onChange={handleFieldChange}
+            value={fields.email}
+            isValid={validationStatus.email}
+            right={MemoizedDuplicateButton}
           />
-          {emailCheckMessage && (
+          {emailDuplicateCheckMessage && (
             <Text
               className={
                 isEmailDuplicate ? 'text-sm text-error' : 'text-sm text-success'
               }
             >
-              {emailCheckMessage}
+              {emailDuplicateCheckMessage}
             </Text>
           )}
         </div>
@@ -116,9 +118,9 @@ const RegisterForm = ({
           name="username"
           label="이름"
           placeholder="이름을 입력해주세요."
-          onChange={handleChange}
-          value={values.username}
-          isValid={isValid.username}
+          onChange={handleFieldChange}
+          value={fields.username}
+          isValid={validationStatus.username}
           errorMessage={ERROR.NAME_INVALID}
         />
         <FormField
@@ -126,9 +128,9 @@ const RegisterForm = ({
           name="password"
           label="비밀번호"
           placeholder="비밀번호를 입력해주세요."
-          onChange={handleChange}
-          value={values.password}
-          isValid={isValid.password}
+          onChange={handleFieldChange}
+          value={fields.password}
+          isValid={validationStatus.password}
           errorMessage={ERROR.PASSWORD_INVAILD}
         />
         <FormField
@@ -136,16 +138,16 @@ const RegisterForm = ({
           name="confirmPassword"
           label="비밀번호 확인"
           placeholder="비밀번호를 다시 한번 입력해주세요."
-          onChange={handleChange}
-          value={values.confirmPassword}
-          isValid={isValid.confirmPassword}
+          onChange={handleFieldChange}
+          value={fields.confirmPassword}
+          isValid={validationStatus.confirmPassword}
           errorMessage={ERROR.PASSWORD_NOT_MATCH}
         />
         <div className="sticky w-full p">
           <Button
             loading={mutation.isPending}
             fullwidth={true}
-            disabled={mutation.isPending || isEmailDuplicate || !isCompleted}
+            disabled={mutation.isPending || isEmailDuplicate || !isFormComplete}
           >
             회원가입
           </Button>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { User } from '~/api/types/userTypes';
 import { ERROR, MESSAGE } from '~/constants/message';
@@ -7,25 +7,29 @@ interface useEmailDuplicateParams {
 }
 
 const useEmailDuplicate = ({ userList }: useEmailDuplicateParams) => {
-  const [emailCheckMessage, setEmailCheckMessage] = useState('');
+  const [emailDuplicateCheckMessage, setEmailDuplicateCheckMessage] =
+    useState('');
   const [isEmailDuplicate, setIsEmailDuplicate] = useState(true);
 
-  const checkDuplicateEmail = (email: string) => {
-    const users: User[] = userList;
-    const isDuplicate = users.some(user => user.email === email);
+  const checkDuplicateEmail = useCallback(
+    (email: string) => {
+      const users: User[] = userList;
+      const isDuplicate = users.some(user => user.email === email);
 
-    setIsEmailDuplicate(isDuplicate);
-    if (isDuplicate) {
-      setEmailCheckMessage(ERROR.DUPLICATE_EMAIL);
-    } else {
-      setEmailCheckMessage(MESSAGE.POSSIBLE_EMAIL);
-    }
-  };
+      setIsEmailDuplicate(isDuplicate);
+      if (isDuplicate) {
+        setEmailDuplicateCheckMessage(ERROR.DUPLICATE_EMAIL);
+      } else {
+        setEmailDuplicateCheckMessage(MESSAGE.POSSIBLE_EMAIL);
+      }
+    },
+    [userList],
+  );
 
   return {
-    emailCheckMessage,
+    emailDuplicateCheckMessage,
     setIsEmailDuplicate,
-    setEmailCheckMessage,
+    setEmailDuplicateCheckMessage,
     isEmailDuplicate,
     checkDuplicateEmail,
   };

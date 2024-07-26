@@ -11,26 +11,27 @@ import { isValidPassword, isValidPasswordMatch } from '~/utils/isValid';
 
 const UpdatePasswordForm = () => {
   const { updatePassword, isPending } = useUpdatePassword();
-  const { values, isValid, isCompleted, handleChange } = useForm({
-    initialValues: {
-      password: '',
-      confirmPassword: '',
-    },
-    isValidinitialValues: {
-      password: false,
-      confirmPassword: false,
-    },
-    validate: {
-      password: value => isValidPassword(value),
-      confirmPassword: value =>
-        isValidPasswordMatch({
-          value: values.password,
-          newPassword: value,
-        }),
-    },
-  });
+  const { fields, isFormComplete, handleFieldChange, validationStatus } =
+    useForm({
+      initialValues: {
+        password: '',
+        confirmPassword: '',
+      },
+      initialValidationStatus: {
+        password: false,
+        confirmPassword: false,
+      },
+      validate: {
+        password: value => isValidPassword(value),
+        confirmPassword: value =>
+          isValidPasswordMatch({
+            value: fields.password,
+            newPassword: value,
+          }),
+      },
+    });
 
-  const { password, confirmPassword } = values;
+  const { password, confirmPassword } = fields;
 
   const handleUpdatePassword = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,10 +49,10 @@ const UpdatePasswordForm = () => {
           type="password"
           name="password"
           value={password ?? ''}
-          onChange={handleChange}
+          onChange={handleFieldChange}
           placeholder="새로운 비밀번호를 입력해주세요."
         />
-        {password && !isValid.password && (
+        {password && !validationStatus.password && (
           <Text className="text-wrap text-xs text-error">
             {ERROR.PASSWORD_INVAILD}
           </Text>
@@ -60,14 +61,14 @@ const UpdatePasswordForm = () => {
           type="password"
           name="confirmPassword"
           value={confirmPassword ?? ''}
-          onChange={handleChange}
+          onChange={handleFieldChange}
           placeholder="비밀번호를 다시 한번 입력해주세요."
         />
-        {confirmPassword && !isValid.confirmPassword && (
+        {confirmPassword && !validationStatus.confirmPassword && (
           <Text className="text-xs text-error">{ERROR.PASSWORD_NOT_MATCH}</Text>
         )}
         <div className="fixed bottom-[56px] left-0 p">
-          <Button loading={isPending} fullwidth disabled={!isCompleted}>
+          <Button loading={isPending} fullwidth disabled={!isFormComplete}>
             변경하기
           </Button>
         </div>

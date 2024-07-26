@@ -1,64 +1,85 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useRef, useState } from 'react';
 
-interface FormValues {
+interface FormFields {
   [key: string]: string;
 }
 
-interface FormIsValid {
+interface FieldsValidationStatus {
   [key: string]: boolean;
 }
 
-interface FormValidate {
-  [key: string]: (value: string) => boolean;
+interface FieldValidators {
+  [key: string]: (value: string, fields: FormFields) => boolean;
 }
 
-interface useFormParams {
-  initialValues: FormValues;
-  isValidinitialValues: FormIsValid;
-  validate: FormValidate;
+interface UseFormParams {
+  initialValues: FormFields;
+  initialValidationStatus: FieldsValidationStatus;
+  validate: FieldValidators;
+  dependencies?: { [key: string]: string[] };
 }
 
 const useForm = ({
   initialValues,
-  isValidinitialValues,
+  initialValidationStatus,
   validate,
-}: useFormParams) => {
-  const [values, setValues] = useState<FormValues>(initialValues);
-  const [isValid, setIsValid] = useState<FormIsValid>(isValidinitialValues);
-  const [isCompleted, setIsCompleted] = useState(false);
+  dependencies = {},
+}: UseFormParams) => {
+  const [fields, setFields] = useState<FormFields>(initialValues);
+  const validationStatusRef = useRef<FieldsValidationStatus>(
+    initialValidationStatus,
+  );
+  const validateRef = useRef<FieldValidators>(validate);
+  const dependenciesRef = useRef<{ [key: string]: string[] }>(dependencies);
+  const [isFormComplete, setIsFormComplete] = useState(false);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = e.target;
+  const checkFieldValidity = useCallback(
+    (fieldName: string, fieldValue: string): void => {
+      setFields(prevFields => {
+        const updatedFields = { ...prevFields, [fieldName]: fieldValue };
 
-    const result = validate[name](value);
+        let fieldsToValidate = [fieldName];
+        if (dependenciesRef.current[fieldName]) {
+          fieldsToValidate = fieldsToValidate.concat(
+            dependenciesRef.current[fieldName],
+          );
+        }
 
-    setValues(prevValues => ({ ...prevValues, [name]: value }));
-    setIsValid(prevIsValid => ({ ...prevIsValid, [name]: result }));
+        const updatedValidationStatus = { ...validationStatusRef.current };
+        fieldsToValidate.forEach(fieldToValidate => {
+          updatedValidationStatus[fieldToValidate] = validateRef.current[
+            fieldToValidate
+          ](updatedFields[fieldToValidate], updatedFields);
+        });
 
-    // confirmPassword 필드에 대한 유효성 검사 함수가 등록되어 있다면 실행 - 재사용성 감소의 원인
-    if (name === 'password' && validate['confirmPassword']) {
-      const confirmPasswordResult = value === values.confirmPassword;
-      setIsValid(prevIsValid => ({
-        ...prevIsValid,
-        confirmPassword: confirmPasswordResult,
-      }));
-    }
+        const validationResult = allFieldsValid(updatedValidationStatus);
+        setIsFormComplete(validationResult);
+
+        validationStatusRef.current = updatedValidationStatus;
+
+        return updatedFields;
+      });
+    },
+    [],
+  );
+
+  const handleFieldChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>): void => {
+      const { name, value } = e.target;
+      checkFieldValidity(name, value);
+    },
+    [checkFieldValidity],
+  );
+
+  const allFieldsValid = (status: FieldsValidationStatus): boolean => {
+    return Object.values(status).every(value => value);
   };
-
-  const areAllValid = (obj: FormIsValid): boolean => {
-    return Object.values(obj).every(value => value);
-  };
-
-  useEffect(() => {
-    const result = areAllValid(isValid);
-    setIsCompleted(result);
-  }, [isValid]);
 
   return {
-    values,
-    isValid,
-    isCompleted,
-    handleChange,
+    fields,
+    validationStatus: validationStatusRef.current,
+    isFormComplete,
+    handleFieldChange,
   };
 };
 

@@ -1,7 +1,12 @@
-import { ChangeEvent, useCallback, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 interface FormFields {
-  [key: string]: string;
+  [key: string]: FieldState;
+}
+
+interface FieldState {
+  value: string;
+  isValid: boolean;
 }
 
 interface FieldsValidationStatus {
@@ -14,22 +19,17 @@ interface FieldValidators {
 
 interface UseFormParams {
   initialValues: FormFields;
-  initialValidationStatus: FieldsValidationStatus;
-  validate: FieldValidators;
+  validation: FieldValidators;
   dependencies?: { [key: string]: string[] };
 }
 
 const useForm = ({
   initialValues,
-  initialValidationStatus,
-  validate,
+  validation,
   dependencies = {},
 }: UseFormParams) => {
   const [fields, setFields] = useState<FormFields>(initialValues);
-  const validationStatusRef = useRef<FieldsValidationStatus>(
-    initialValidationStatus,
-  );
-  const validateRef = useRef<FieldValidators>(validate);
+  const validateFuncRef = useRef<FieldValidators>(validation);
   const dependenciesRef = useRef<{ [key: string]: string[] }>(dependencies);
   const [isFormComplete, setIsFormComplete] = useState(false);
 
@@ -38,30 +38,28 @@ const useForm = ({
       setFields(prevFields => {
         const updatedFields = {
           ...prevFields,
-          [fieldName]: fieldValue,
+          [fieldName]: {
+            ...prevFields[fieldName],
+            value: fieldValue,
+          },
         };
 
-        let fieldsToValidate = [fieldName];
-        if (dependenciesRef.current[fieldName]) {
-          fieldsToValidate = fieldsToValidate.concat(
-            dependenciesRef.current[fieldName],
-          );
-        }
+        const fieldsToValidate = [
+          fieldName,
+          ...(dependenciesRef.current[fieldName] || []),
+        ];
 
-        const updatedValidationStatus = { ...validationStatusRef.current };
         fieldsToValidate.forEach(fieldToValidate => {
-          updatedValidationStatus[fieldToValidate] = validateRef.current[
-            fieldToValidate
-          ](updatedFields[fieldToValidate], updatedFields);
-        });
+          const validationResult = validateFuncRef.current[fieldToValidate](
+            updatedFields[fieldToValidate].value,
+            updatedFields,
+          );
 
-        validationStatusRef.current = updatedValidationStatus;
+          updatedFields[fieldToValidate].isValid = validationResult;
+        });
 
         return updatedFields;
       });
-
-      const validationResult = allFieldsValid(validationStatusRef.current);
-      setIsFormComplete(validationResult);
     },
     [],
   );
@@ -74,13 +72,27 @@ const useForm = ({
     [checkFieldValidity],
   );
 
-  const allFieldsValid = (status: FieldsValidationStatus): boolean => {
-    return Object.values(status).every(value => value);
-  };
+  useEffect(() => {
+    const validationStatus: FieldsValidationStatus = Object.entries(
+      fields,
+    ).reduce((acc: FieldsValidationStatus, [key, { isValid }]) => {
+      acc[key] = isValid;
+      return acc;
+    }, {});
+
+    const allFieldsValid = Object.values(validationStatus).every(
+      value => value,
+    );
+    setIsFormComplete(allFieldsValid);
+  }, [fields]);
 
   return {
-    fields,
-    validationStatus: validationStatusRef.current,
+    fields: Object.fromEntries(
+      Object.entries(fields).map(([key, { value }]) => [key, value]),
+    ),
+    validationStatus: Object.fromEntries(
+      Object.entries(fields).map(([key, { isValid }]) => [key, isValid]),
+    ),
     isFormComplete,
     handleFieldChange,
   };

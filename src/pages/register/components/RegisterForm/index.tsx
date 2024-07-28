@@ -40,22 +40,16 @@ const RegisterForm = ({
   const { fields, validationStatus, isFormComplete, handleFieldChange } =
     useForm({
       initialValues: {
-        email: '',
-        password: '',
-        username: '',
-        confirmPassword: '',
+        email: { value: '', isValid: false },
+        password: { value: '', isValid: false },
+        username: { value: '', isValid: false },
+        confirmPassword: { value: '', isValid: false },
       },
-      initialValidationStatus: {
-        email: false,
-        password: false,
-        username: false,
-        confirmPassword: false,
-      },
-      validate: {
+      validation: {
         email: value => isValidEmail(value),
         password: value => isValidPassword(value),
         username: value => isValidUsername(value),
-        confirmPassword: (value, values) => value === values.password,
+        confirmPassword: (value, values) => value === values.password.value,
       },
       dependencies: {
         password: ['confirmPassword'],

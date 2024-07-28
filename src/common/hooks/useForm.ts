@@ -36,7 +36,10 @@ const useForm = ({
   const checkFieldValidity = useCallback(
     (fieldName: string, fieldValue: string): void => {
       setFields(prevFields => {
-        const updatedFields = { ...prevFields, [fieldName]: fieldValue };
+        const updatedFields = {
+          ...prevFields,
+          [fieldName]: fieldValue,
+        };
 
         let fieldsToValidate = [fieldName];
         if (dependenciesRef.current[fieldName]) {
@@ -52,13 +55,13 @@ const useForm = ({
           ](updatedFields[fieldToValidate], updatedFields);
         });
 
-        const validationResult = allFieldsValid(updatedValidationStatus);
-        setIsFormComplete(validationResult);
-
         validationStatusRef.current = updatedValidationStatus;
 
         return updatedFields;
       });
+
+      const validationResult = allFieldsValid(validationStatusRef.current);
+      setIsFormComplete(validationResult);
     },
     [],
   );
